@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -24,6 +24,9 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueType;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SaveMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
 import java.util.List;
@@ -32,62 +35,70 @@ import java.util.Set;
 
 public class JdbcOutput implements BulkOutput, ProvidesAlias, ProvidesValidations {
 
-  public static final String JDBC_CONFIG_URL = "url";
-  public static final String JDBC_CONFIG_TABLENAME = "tablename";
-  public static final String JDBC_CONFIG_USERNAME = "username";
-  public static final String JDBC_CONFIG_PASSWORD = "password";
+    public static final String JDBC_CONFIG_URL = "url";
+    public static final String JDBC_CONFIG_TABLENAME = "tablename";
+    public static final String JDBC_CONFIG_USERNAME = "username";
+    public static final String JDBC_CONFIG_PASSWORD = "password";
 
-  private String url;
-  private String tableName;
-  private String username;
-  private String password;
+    private String url;
+    private String tableName;
+    private String username;
+    private String password;
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
-  @Override
-  public void configure(Config config) {
-    url = config.getString(JDBC_CONFIG_URL);
-    tableName = config.getString(JDBC_CONFIG_TABLENAME);
-    username = config.getString(JDBC_CONFIG_USERNAME);
-    password = config.getString(JDBC_CONFIG_PASSWORD);
-  }
-
-  @Override
-  public Set<MutationType> getSupportedBulkMutationTypes() {
-    return Sets.newHashSet(MutationType.INSERT);
-  }
-
-  @Override
-  public void applyBulkMutations(List<Tuple2<MutationType, Dataset<Row>>> planned) {
-    Properties properties = new Properties();
-    properties.put("user",username);
-    properties.put("password",password);
-
-    for (Tuple2<MutationType, Dataset<Row>> plan : planned) {
-      MutationType mutationType = plan._1();
-      Dataset<Row> mutation = plan._2();
-      switch (mutationType) {
-        case INSERT:
-          mutation.write().jdbc(url, tableName, properties);
-          break;
-        default:
-          throw new RuntimeException("JDBC output does not support mutation type: " + mutationType);
-      }
+    @Override
+    public void configure(Config config) {
+        url = config.getString(JDBC_CONFIG_URL);
+        tableName = config.getString(JDBC_CONFIG_TABLENAME);
+        username = config.getString(JDBC_CONFIG_USERNAME);
+        password = config.getString(JDBC_CONFIG_PASSWORD);
     }
-  }
 
-  @Override
-  public String getAlias() {
-    return "jdbc";
-  }
+    @Override
+    public Set<MutationType> getSupportedBulkMutationTypes() {
+        return Sets.newHashSet(MutationType.INSERT);
+    }
 
-  @Override
-  public Validations getValidations() {
-    return Validations.builder()
-        .mandatoryPath(JDBC_CONFIG_URL, ConfigValueType.STRING)
-        .mandatoryPath(JDBC_CONFIG_TABLENAME, ConfigValueType.STRING)
-        .mandatoryPath(JDBC_CONFIG_USERNAME, ConfigValueType.STRING)
-        .mandatoryPath(JDBC_CONFIG_PASSWORD, ConfigValueType.STRING)
-        .allowEmptyValue(JDBC_CONFIG_PASSWORD)
-        .build();
-  }
-  
+    @Override
+    public void applyBulkMutations(List<Tuple2<MutationType, Dataset<Row>>> planned) {
+        Properties properties = new Properties();
+        properties.put("user", username);
+        properties.put("password", password);
+
+        for (Tuple2<MutationType, Dataset<Row>> plan : planned) {
+            MutationType mutationType = plan._1();
+            Dataset<Row> mutation = plan._2();
+            log.info("Jdbc input test");
+            switch (mutationType) {
+                case INSERT:
+                    try {
+                        mutation.write()
+                                .mode(SaveMode.Append)
+                                .jdbc(url, tableName, properties);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                    break;
+                default:
+                    throw new RuntimeException("JDBC output does not support mutation type: " + mutationType);
+            }
+        }
+    }
+
+    @Override
+    public String getAlias() {
+        return "jdbc";
+    }
+
+    @Override
+    public Validations getValidations() {
+        return Validations.builder()
+                .mandatoryPath(JDBC_CONFIG_URL, ConfigValueType.STRING)
+                .mandatoryPath(JDBC_CONFIG_TABLENAME, ConfigValueType.STRING)
+                .mandatoryPath(JDBC_CONFIG_USERNAME, ConfigValueType.STRING)
+                .mandatoryPath(JDBC_CONFIG_PASSWORD, ConfigValueType.STRING)
+                .allowEmptyValue(JDBC_CONFIG_PASSWORD)
+                .build();
+    }
+
 }

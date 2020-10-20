@@ -1,45 +1,53 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>com.cloudera.labs.envelope</groupId>
-    <artifactId>envelope-parent</artifactId>
-    <version>0.7.1</version>
-    <relativePath>../../pom.xml</relativePath>
-  </parent>
+    <parent>
+        <groupId>com.cloudera.labs.envelope</groupId>
+        <artifactId>envelope-parent</artifactId>
+        <version>0.7.1</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
 
-  <artifactId>envelope-kafka</artifactId>
+    <artifactId>envelope-kafka</artifactId>
 
-  <properties>
-    <parent.relative.dir>../../</parent.relative.dir>
-    <kafka.version>0.10.0.0</kafka.version>
-  </properties>
+    <properties>
+        <parent.relative.dir>../../</parent.relative.dir>
+        <kafka.version>0.10.0.0</kafka.version>
+    </properties>
 
-  <dependencies>
-    <dependency>
-      <groupId>com.cloudera.labs.envelope</groupId>
-      <artifactId>envelope-core</artifactId>
-      <version>${project.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.cloudera.labs.envelope</groupId>
-      <artifactId>envelope-core</artifactId>
-      <version>${project.version}</version>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-streaming-kafka-0-10_${scala.version}</artifactId>
-      <version>${spark.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_${scala.version}</artifactId>
-      <version>${kafka.version}</version>
-      <scope>compile</scope>
-    </dependency>
-  </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>com.cloudera.labs.envelope</groupId>
+            <artifactId>envelope-core</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.cloudera.labs.envelope</groupId>
+            <artifactId>envelope-lib</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.cloudera.labs.envelope</groupId>
+            <artifactId>envelope-core</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-streaming-kafka-0-10_${scala.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka_${scala.version}</artifactId>
+            <version>${kafka.version}</version>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
 </project>
