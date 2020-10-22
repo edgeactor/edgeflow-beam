@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -112,8 +112,8 @@ public class TestRowUtils {
 
     assertEquals(setRow.length(), 3);
     assertEquals(setRow.getAs("field1"), "world");
-    assertEquals(setRow.getAs("field2"), 100);
-    assertEquals(setRow.getAs("field3"), 2.0);
+    assertEquals(Integer.parseInt(setRow.getAs("field2")), 100);
+    assertEquals(Float.parseFloat(setRow.getAs("field3")), 2.0);
   }
 
   @Test
@@ -141,8 +141,8 @@ public class TestRowUtils {
 
     assertEquals(appendRow.length(), 5);
     assertEquals(appendRow.getAs("field1"), "hello");
-    assertEquals(appendRow.getAs("field2"), 1);
-    assertEquals(appendRow.getAs("field3"), 2.0);
+    assertEquals(Integer.parseInt(appendRow.getAs("field2")), 1);
+    assertEquals(Float.parseFloat(appendRow.getAs("field3")), 2.0);
     assertEquals(appendRow.getAs("field4"), true);
     assertEquals(appendRow.getAs("field5"), "world");
   }

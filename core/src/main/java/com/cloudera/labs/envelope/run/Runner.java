@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -52,12 +52,21 @@ import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueFactory;
 import com.typesafe.config.ConfigValueType;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.api.java.function.VoidFunction2;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.streaming.OutputMode;
+import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Function2;
+import scala.runtime.BoxedUnit;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -123,7 +132,9 @@ public class Runner {
         notifyPipelineStarted();
 
         try {
-            if (mode == ExecutionMode.STREAMING) {
+            if (mode == ExecutionMode.STRUCTURED_STREAMING) {
+                runStructuredStreaming(steps);
+            } else if (mode == ExecutionMode.STREAMING) {
                 runStreaming(steps);
             } else {
                 runBatch(steps);
@@ -140,11 +151,66 @@ public class Runner {
     }
 
     private ExecutionMode getExecutionMode(Set<Step> steps) {
-        ExecutionMode mode = StepUtils.hasStreamingStep(steps) ? Contexts.ExecutionMode.STREAMING : Contexts.ExecutionMode.BATCH;
+        ExecutionMode mode = ExecutionMode.BATCH;
+        if (StepUtils.hasStructuredStreamingStep(steps)) {
+            mode = ExecutionMode.STRUCTURED_STREAMING;
+        } else if (StepUtils.hasStreamingStep(steps)) {
+            mode = ExecutionMode.STREAMING;
+        }
+//         StepUtils.hasStreamingStep(steps) ? Contexts.ExecutionMode.STREAMING : Contexts.ExecutionMode.BATCH;
         notifyExecutionMode(mode);
 
         return mode;
     }
+
+
+    @SuppressWarnings("DuplicatedCode")
+    private void runStructuredStreaming(final Set<Step> steps) throws Exception {
+
+        final Set<Step> independentNonStructuredStreamingSteps = StepUtils.getIndependentNonStructuredStreamingSteps(steps);
+        runBatch(independentNonStructuredStreamingSteps);
+
+        List<StreamingQuery> streamingQueryList = Lists.newLinkedList();
+
+        Set<StructuredStreamingStep> structuredStreamingSteps = StepUtils.getStructuredStreamingSteps(steps);
+        for (final StructuredStreamingStep structuredStreamingStep : structuredStreamingSteps) {
+            Dataset<Row> stream = structuredStreamingStep.getStream();
+
+            StreamingQuery streamingQuery = stream
+                    .writeStream()
+                    .foreachBatch((VoidFunction2<Dataset<Row>, Long>) (df, aLong) -> {
+
+                        StepUtils.resetRepeatingSteps(steps);
+                        runBatch(independentNonStructuredStreamingSteps);
+
+                        structuredStreamingStep.setData(df);
+                        structuredStreamingStep.writeData();
+                        structuredStreamingStep.setState(StepState.FINISHED);
+
+                        Set<Step> batchSteps = StepUtils.mergeLoadedSteps(steps, structuredStreamingStep, baseConfig);
+                        Set<Step> dependentSteps = StepUtils.getAllDependentSteps(structuredStreamingStep, batchSteps);
+                        batchSteps.add(structuredStreamingStep);
+                        batchSteps.addAll(structuredStreamingStep.loadNewBatchSteps());
+                        batchSteps.addAll(independentNonStructuredStreamingSteps);
+                        runBatch(batchSteps);
+
+                        StepUtils.resetSteps(dependentSteps);
+                    })
+                    .outputMode(OutputMode.Append())
+                    .format("memory")
+                    .queryName(structuredStreamingStep.name)
+                    .start();
+
+            streamingQueryList.add(streamingQuery);
+            // register table
+            stream.createOrReplaceTempView(structuredStreamingStep.name);
+        }
+
+        for (StreamingQuery query : streamingQueryList) {
+            query.awaitTermination();
+        }
+    }
+
 
     /**
      * Run the Envelope pipeline as a Spark Streaming job.

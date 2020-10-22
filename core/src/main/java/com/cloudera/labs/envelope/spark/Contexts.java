@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -40,224 +40,224 @@ import java.util.UUID;
  */
 public enum Contexts {
 
-  INSTANCE;
+    INSTANCE;
 
-  private static final Logger LOG = LoggerFactory.getLogger(Contexts.class);
+    private static final Logger LOG = LoggerFactory.getLogger(Contexts.class);
 
-  public static final String APPLICATION_SECTION_PREFIX = "application";
-  public static final String APPLICATION_NAME_PROPERTY = "name";
-  public static final String BATCH_MILLISECONDS_PROPERTY = "batch.milliseconds";
-  public static final String NUM_INITIAL_EXECUTORS_PROPERTY = "executor.initial.instances";
-  public static final String NUM_EXECUTORS_PROPERTY = "executor.instances";
-  public static final String NUM_EXECUTOR_CORES_PROPERTY = "executor.cores";
-  public static final String EXECUTOR_MEMORY_PROPERTY = "executor.memory";
-  public static final String SPARK_CONF_PROPERTY_PREFIX = "spark.conf";
-  public static final String SPARK_SESSION_ENABLE_HIVE_SUPPORT = "hive.enabled";
-  public static final String DRIVER_MEMORY_PROPERTY = "driver.memory";
-  public static final String SPARK_DRIVER_MEMORY_PROPERTY = "spark.driver.memory";
-  public static final String SPARK_DEPLOY_MODE_PROPERTY = "spark.submit.deployMode";
-  public static final String SPARK_DEPLOY_MODE_CLIENT = "client";
-  public static final String SPARK_DEPLOY_MODE_CLUSTER = "cluster";
-  public static final String ENVELOPE_CONFIGURATION_SPARK = "spark.envelope.configuration";
+    public static final String APPLICATION_SECTION_PREFIX = "application";
+    public static final String APPLICATION_NAME_PROPERTY = "name";
+    public static final String BATCH_MILLISECONDS_PROPERTY = "batch.milliseconds";
+    public static final String NUM_INITIAL_EXECUTORS_PROPERTY = "executor.initial.instances";
+    public static final String NUM_EXECUTORS_PROPERTY = "executor.instances";
+    public static final String NUM_EXECUTOR_CORES_PROPERTY = "executor.cores";
+    public static final String EXECUTOR_MEMORY_PROPERTY = "executor.memory";
+    public static final String SPARK_CONF_PROPERTY_PREFIX = "spark.conf";
+    public static final String SPARK_SESSION_ENABLE_HIVE_SUPPORT = "hive.enabled";
+    public static final String DRIVER_MEMORY_PROPERTY = "driver.memory";
+    public static final String SPARK_DRIVER_MEMORY_PROPERTY = "spark.driver.memory";
+    public static final String SPARK_DEPLOY_MODE_PROPERTY = "spark.submit.deployMode";
+    public static final String SPARK_DEPLOY_MODE_CLIENT = "client";
+    public static final String SPARK_DEPLOY_MODE_CLUSTER = "cluster";
+    public static final String ENVELOPE_CONFIGURATION_SPARK = "spark.envelope.configuration";
 
-  public static final boolean SPARK_SESSION_ENABLE_HIVE_SUPPORT_DEFAULT = true;
+    public static final boolean SPARK_SESSION_ENABLE_HIVE_SUPPORT_DEFAULT = true;
 
-  private static final String PIPELINE_ID = UUID.randomUUID().toString();
+    private static final String PIPELINE_ID = UUID.randomUUID().toString();
 
-  private Config config = ConfigFactory.empty();
-  private ExecutionMode mode = ExecutionMode.UNIT_TEST;
+    private Config config = ConfigFactory.empty();
+    private ExecutionMode mode = ExecutionMode.UNIT_TEST;
 
-  private SparkSession ss;
-  private JavaStreamingContext jsc;
+    private SparkSession ss;
+    private JavaStreamingContext jsc;
 
-  public static String getPipelineID() {
-    return PIPELINE_ID;
-  }
-
-  public static String getApplicationID() {
-    if (hasSparkSession()) {
-      return getSparkSession().sparkContext().applicationId();
+    public static String getPipelineID() {
+        return PIPELINE_ID;
     }
 
-    return null;
-  }
-
-  public static synchronized SparkSession getSparkSession() {
-    if (!hasSparkSession()) {
-      startSparkSession();
-    }
-
-    return INSTANCE.ss;
-  }
-
-  public static boolean hasSparkSession() {
-    return INSTANCE.ss != null;
-  }
-
-  public static synchronized JavaStreamingContext getJavaStreamingContext() {
-    if (INSTANCE.jsc == null) {
-      startStreamingContext();
-    }
-
-    return INSTANCE.jsc;
-  }
-
-  public static synchronized void closeSparkSession() {
-    if (INSTANCE.ss != null) {
-      INSTANCE.ss.close();
-      INSTANCE.ss = null;
-      INSTANCE.mode = ExecutionMode.UNIT_TEST;
-    }
-
-    FileUtils.deleteQuietly(new File("metastore_db"));
-    FileUtils.deleteQuietly(new File("derby.log"));
-    FileUtils.deleteQuietly(new File("spark-warehouse"));
-  }
-
-  public static synchronized void closeJavaStreamingContext() {
-    if (INSTANCE.jsc != null) {
-      INSTANCE.jsc.close();
-      INSTANCE.jsc = null;
-      closeSparkSession();
-    }
-  }
-
-  public static void initialize(Config config, ExecutionMode mode) {
-    INSTANCE.config = config.hasPath(APPLICATION_SECTION_PREFIX) ?
-        config.getConfig(APPLICATION_SECTION_PREFIX) : ConfigFactory.empty();
-    INSTANCE.mode = mode;
-    closeSparkSession();
-    getSparkSession();
-  }
-
-  private static void startStreamingContext() {
-    int batchMilliseconds = INSTANCE.config.getInt(BATCH_MILLISECONDS_PROPERTY);
-    final Duration batchDuration = Durations.milliseconds(batchMilliseconds);
-
-    INSTANCE.jsc = new JavaStreamingContext(
-        new JavaSparkContext(getSparkSession().sparkContext()), batchDuration);
-  }
-
-  private static void startSparkSession() {
-    SparkConf sparkConf = getSparkConfiguration(INSTANCE.config, INSTANCE.mode);
-
-    if (!sparkConf.contains("spark.master")) {
-      LOG.warn("Spark master not provided, instead using local mode");
-      sparkConf.setMaster("local[*]");
-    }
-    if (!sparkConf.contains("spark.app.name")) {
-      LOG.warn("Spark application name not provided, instead using empty string");
-      sparkConf.setAppName("");
-    }
-
-    SparkSession.Builder sparkSessionBuilder = SparkSession.builder();
-    if (enablesHiveSupport()) {
-      sparkSessionBuilder.enableHiveSupport();
-    }
-
-    INSTANCE.ss = sparkSessionBuilder.config(sparkConf).getOrCreate();
-  }
-
-  private static synchronized SparkConf getSparkConfiguration(Config config, ExecutionMode mode) {
-    SparkConf sparkConf = new SparkConf();
-
-    if (config.hasPath(APPLICATION_NAME_PROPERTY)) {
-      String applicationName = config.getString(APPLICATION_NAME_PROPERTY);
-      sparkConf.setAppName(applicationName);
-    }
-
-    if (mode.equals(ExecutionMode.STREAMING)) {
-      // Dynamic allocation should not be used for Spark Streaming jobs because the latencies
-      // of the resource requests are too long.
-      sparkConf.set("spark.dynamicAllocation.enabled", "false");
-      // Spark Streaming back-pressure helps automatically tune the size of the micro-batches so
-      // that they don't breach the micro-batch length.
-      sparkConf.set("spark.streaming.backpressure.enabled", "true");
-      // Rate limit the micro-batches when using Apache Kafka to 2000 records per Kafka topic partition
-      // per second. Without this we could end up with arbitrarily large initial micro-batches
-      // for existing topics.
-      sparkConf.set("spark.streaming.kafka.maxRatePerPartition", "2000");
-      // Override the Spark SQL shuffle partitions with the default number of cores. Otherwise
-      // the default is typically 200 partitions, which is very high for micro-batches.
-      sparkConf.set("spark.sql.shuffle.partitions", "2");
-      // Override the caching of KafkaConsumers which has been shown to be problematic with multi-core executors
-      // (see SPARK-19185)
-      sparkConf.set("spark.streaming.kafka.consumer.cache.enabled", "false");
-    } else if (mode.equals(ExecutionMode.UNIT_TEST)) {
-      sparkConf.set("spark.sql.catalogImplementation", "in-memory");
-      sparkConf.set("spark.sql.shuffle.partitions", "1");
-      sparkConf.set("spark.sql.warehouse.dir", "target/spark-warehouse");
-    }
-
-    if (config.hasPath(NUM_EXECUTORS_PROPERTY)) {
-      sparkConf.set("spark.executor.instances", config.getString(NUM_EXECUTORS_PROPERTY));
-    }
-    if (config.hasPath(NUM_INITIAL_EXECUTORS_PROPERTY)) {
-      sparkConf.set("spark.dynamicAllocation.initialExecutors", config.getString(NUM_INITIAL_EXECUTORS_PROPERTY));
-    }
-    if (config.hasPath(NUM_EXECUTOR_CORES_PROPERTY)) {
-      sparkConf.set("spark.executor.cores", config.getString(NUM_EXECUTOR_CORES_PROPERTY));
-    }
-    if (config.hasPath(EXECUTOR_MEMORY_PROPERTY)) {
-      sparkConf.set("spark.executor.memory", config.getString(EXECUTOR_MEMORY_PROPERTY));
-    }
-    // Override the Spark SQL shuffle partitions with the number of cores, if known.
-    if (config.hasPath(NUM_EXECUTORS_PROPERTY) && config.hasPath(NUM_EXECUTOR_CORES_PROPERTY)) {
-      int executors = config.getInt(NUM_EXECUTORS_PROPERTY);
-      int executorCores = config.getInt(NUM_EXECUTOR_CORES_PROPERTY);
-      Integer shufflePartitions = executors * executorCores;
-
-      sparkConf.set("spark.sql.shuffle.partitions", shufflePartitions.toString());
-    }
-
-    if (enablesHiveSupport()) {
-      // Allow dynamic partitioning into Hive tables without providing any static partition values
-      sparkConf.set("hive.exec.dynamic.partition.mode", "nonstrict");
-    }
-
-    if (config.hasPath(DRIVER_MEMORY_PROPERTY)) {
-      sparkConf.set(SPARK_DRIVER_MEMORY_PROPERTY, config.getString(DRIVER_MEMORY_PROPERTY));
-    }
-
-    // Allow the user to provide any Spark configuration and we will just pass it on. These can
-    // also override any of the configurations above.
-    if (config.hasPath(SPARK_CONF_PROPERTY_PREFIX)) {
-      Config sparkConfigs = config.getConfig(SPARK_CONF_PROPERTY_PREFIX);
-      for (Map.Entry<String, ConfigValue> entry : sparkConfigs.entrySet()) {
-        String param = entry.getKey();
-        String value = entry.getValue().unwrapped().toString();
-        if (value != null) {
-          sparkConf.set(param, value);
+    public static String getApplicationID() {
+        if (hasSparkSession()) {
+            return getSparkSession().sparkContext().applicationId();
         }
-      }
+
+        return null;
     }
 
-    if ((!sparkConf.contains(SPARK_DEPLOY_MODE_PROPERTY)
-        || sparkConf.get(SPARK_DEPLOY_MODE_PROPERTY).equalsIgnoreCase(SPARK_DEPLOY_MODE_CLIENT))
-        && (config.hasPath(DRIVER_MEMORY_PROPERTY)
-            || config.hasPath(SPARK_CONF_PROPERTY_PREFIX + "." + SPARK_DRIVER_MEMORY_PROPERTY))) {
-      throw new RuntimeException(
-          "Driver memory can not be set in configuration file when application is running in client mode. "
-          + "Instead, use Spark's --driver-memory command line argument.");
+    public static synchronized SparkSession getSparkSession() {
+        if (!hasSparkSession()) {
+            startSparkSession();
+        }
+
+        return INSTANCE.ss;
     }
 
-    String envelopeConf = config.root().render(ConfigRenderOptions.concise());
-    sparkConf.set(ENVELOPE_CONFIGURATION_SPARK, envelopeConf);
+    public static boolean hasSparkSession() {
+        return INSTANCE.ss != null;
+    }
 
-    return sparkConf;
-  }
+    public static synchronized JavaStreamingContext getJavaStreamingContext() {
+        if (INSTANCE.jsc == null) {
+            startStreamingContext();
+        }
 
-  private static boolean enablesHiveSupport() {
-    if (INSTANCE.mode == ExecutionMode.UNIT_TEST) return false;
+        return INSTANCE.jsc;
+    }
 
-    return ConfigUtils.getOrElse(
-        INSTANCE.config,
-        SPARK_SESSION_ENABLE_HIVE_SUPPORT,
-        SPARK_SESSION_ENABLE_HIVE_SUPPORT_DEFAULT);
-  }
+    public static synchronized void closeSparkSession() {
+        if (INSTANCE.ss != null) {
+            INSTANCE.ss.close();
+            INSTANCE.ss = null;
+            INSTANCE.mode = ExecutionMode.UNIT_TEST;
+        }
 
-  public enum ExecutionMode {
-    BATCH, STREAMING, UNIT_TEST
-  }
+        FileUtils.deleteQuietly(new File("metastore_db"));
+        FileUtils.deleteQuietly(new File("derby.log"));
+        FileUtils.deleteQuietly(new File("spark-warehouse"));
+    }
+
+    public static synchronized void closeJavaStreamingContext() {
+        if (INSTANCE.jsc != null) {
+            INSTANCE.jsc.close();
+            INSTANCE.jsc = null;
+            closeSparkSession();
+        }
+    }
+
+    public static void initialize(Config config, ExecutionMode mode) {
+        INSTANCE.config = config.hasPath(APPLICATION_SECTION_PREFIX) ?
+                config.getConfig(APPLICATION_SECTION_PREFIX) : ConfigFactory.empty();
+        INSTANCE.mode = mode;
+        closeSparkSession();
+        getSparkSession();
+    }
+
+    private static void startStreamingContext() {
+        int batchMilliseconds = INSTANCE.config.getInt(BATCH_MILLISECONDS_PROPERTY);
+        final Duration batchDuration = Durations.milliseconds(batchMilliseconds);
+
+        INSTANCE.jsc = new JavaStreamingContext(
+                new JavaSparkContext(getSparkSession().sparkContext()), batchDuration);
+    }
+
+    private static void startSparkSession() {
+        SparkConf sparkConf = getSparkConfiguration(INSTANCE.config, INSTANCE.mode);
+
+        if (!sparkConf.contains("spark.master")) {
+            LOG.warn("Spark master not provided, instead using local mode");
+            sparkConf.setMaster("local[*]");
+        }
+        if (!sparkConf.contains("spark.app.name")) {
+            LOG.warn("Spark application name not provided, instead using empty string");
+            sparkConf.setAppName("");
+        }
+
+        SparkSession.Builder sparkSessionBuilder = SparkSession.builder();
+        if (enablesHiveSupport()) {
+            sparkSessionBuilder.enableHiveSupport();
+        }
+
+        INSTANCE.ss = sparkSessionBuilder.config(sparkConf).getOrCreate();
+    }
+
+    private static synchronized SparkConf getSparkConfiguration(Config config, ExecutionMode mode) {
+        SparkConf sparkConf = new SparkConf();
+
+        if (config.hasPath(APPLICATION_NAME_PROPERTY)) {
+            String applicationName = config.getString(APPLICATION_NAME_PROPERTY);
+            sparkConf.setAppName(applicationName);
+        }
+
+        if (mode.equals(ExecutionMode.STREAMING)) {
+            // Dynamic allocation should not be used for Spark Streaming jobs because the latencies
+            // of the resource requests are too long.
+            sparkConf.set("spark.dynamicAllocation.enabled", "false");
+            // Spark Streaming back-pressure helps automatically tune the size of the micro-batches so
+            // that they don't breach the micro-batch length.
+            sparkConf.set("spark.streaming.backpressure.enabled", "true");
+            // Rate limit the micro-batches when using Apache Kafka to 2000 records per Kafka topic partition
+            // per second. Without this we could end up with arbitrarily large initial micro-batches
+            // for existing topics.
+            sparkConf.set("spark.streaming.kafka.maxRatePerPartition", "2000");
+            // Override the Spark SQL shuffle partitions with the default number of cores. Otherwise
+            // the default is typically 200 partitions, which is very high for micro-batches.
+            sparkConf.set("spark.sql.shuffle.partitions", "2");
+            // Override the caching of KafkaConsumers which has been shown to be problematic with multi-core executors
+            // (see SPARK-19185)
+            sparkConf.set("spark.streaming.kafka.consumer.cache.enabled", "false");
+        } else if (mode.equals(ExecutionMode.UNIT_TEST)) {
+            sparkConf.set("spark.sql.catalogImplementation", "in-memory");
+            sparkConf.set("spark.sql.shuffle.partitions", "1");
+            sparkConf.set("spark.sql.warehouse.dir", "target/spark-warehouse");
+        }
+
+        if (config.hasPath(NUM_EXECUTORS_PROPERTY)) {
+            sparkConf.set("spark.executor.instances", config.getString(NUM_EXECUTORS_PROPERTY));
+        }
+        if (config.hasPath(NUM_INITIAL_EXECUTORS_PROPERTY)) {
+            sparkConf.set("spark.dynamicAllocation.initialExecutors", config.getString(NUM_INITIAL_EXECUTORS_PROPERTY));
+        }
+        if (config.hasPath(NUM_EXECUTOR_CORES_PROPERTY)) {
+            sparkConf.set("spark.executor.cores", config.getString(NUM_EXECUTOR_CORES_PROPERTY));
+        }
+        if (config.hasPath(EXECUTOR_MEMORY_PROPERTY)) {
+            sparkConf.set("spark.executor.memory", config.getString(EXECUTOR_MEMORY_PROPERTY));
+        }
+        // Override the Spark SQL shuffle partitions with the number of cores, if known.
+        if (config.hasPath(NUM_EXECUTORS_PROPERTY) && config.hasPath(NUM_EXECUTOR_CORES_PROPERTY)) {
+            int executors = config.getInt(NUM_EXECUTORS_PROPERTY);
+            int executorCores = config.getInt(NUM_EXECUTOR_CORES_PROPERTY);
+            Integer shufflePartitions = executors * executorCores;
+
+            sparkConf.set("spark.sql.shuffle.partitions", shufflePartitions.toString());
+        }
+
+        if (enablesHiveSupport()) {
+            // Allow dynamic partitioning into Hive tables without providing any static partition values
+            sparkConf.set("hive.exec.dynamic.partition.mode", "nonstrict");
+        }
+
+        if (config.hasPath(DRIVER_MEMORY_PROPERTY)) {
+            sparkConf.set(SPARK_DRIVER_MEMORY_PROPERTY, config.getString(DRIVER_MEMORY_PROPERTY));
+        }
+
+        // Allow the user to provide any Spark configuration and we will just pass it on. These can
+        // also override any of the configurations above.
+        if (config.hasPath(SPARK_CONF_PROPERTY_PREFIX)) {
+            Config sparkConfigs = config.getConfig(SPARK_CONF_PROPERTY_PREFIX);
+            for (Map.Entry<String, ConfigValue> entry : sparkConfigs.entrySet()) {
+                String param = entry.getKey();
+                String value = entry.getValue().unwrapped().toString();
+                if (value != null) {
+                    sparkConf.set(param, value);
+                }
+            }
+        }
+
+        if ((!sparkConf.contains(SPARK_DEPLOY_MODE_PROPERTY)
+                || sparkConf.get(SPARK_DEPLOY_MODE_PROPERTY).equalsIgnoreCase(SPARK_DEPLOY_MODE_CLIENT))
+                && (config.hasPath(DRIVER_MEMORY_PROPERTY)
+                || config.hasPath(SPARK_CONF_PROPERTY_PREFIX + "." + SPARK_DRIVER_MEMORY_PROPERTY))) {
+            throw new RuntimeException(
+                    "Driver memory can not be set in configuration file when application is running in client mode. "
+                            + "Instead, use Spark's --driver-memory command line argument.");
+        }
+
+        String envelopeConf = config.root().render(ConfigRenderOptions.concise());
+        sparkConf.set(ENVELOPE_CONFIGURATION_SPARK, envelopeConf);
+
+        return sparkConf;
+    }
+
+    private static boolean enablesHiveSupport() {
+        if (INSTANCE.mode == ExecutionMode.UNIT_TEST) return false;
+
+        return ConfigUtils.getOrElse(
+                INSTANCE.config,
+                SPARK_SESSION_ENABLE_HIVE_SUPPORT,
+                SPARK_SESSION_ENABLE_HIVE_SUPPORT_DEFAULT);
+    }
+
+    public enum ExecutionMode {
+        BATCH, STREAMING, STRUCTURED_STREAMING, UNIT_TEST
+    }
 
 }
