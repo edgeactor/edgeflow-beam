@@ -475,7 +475,7 @@ public class Runner {
                 metadata));
     }
 
-    private void validateConfigurations(Config config) {
+    public void validateConfigurations(Config config) {
         if (!ConfigUtils.getOrElse(config,
                 Validator.CONFIGURATION_VALIDATION_ENABLED_PROPERTY,
                 Validator.CONFIGURATION_VALIDATION_ENABLED_DEFAULT)) {
@@ -508,24 +508,19 @@ public class Runner {
         }
 
         // Validate application section
-        List<ValidationResult> applicationResults = Validator.validate(new ProvidesValidations() {
-            @Override
-            public Validations getValidations() {
-                return Validations.builder()
-                        .optionalPath(Contexts.APPLICATION_NAME_PROPERTY, ConfigValueType.STRING)
-                        .optionalPath(Contexts.NUM_EXECUTORS_PROPERTY, ConfigValueType.NUMBER)
-                        .optionalPath(Contexts.NUM_EXECUTOR_CORES_PROPERTY, ConfigValueType.NUMBER)
-                        .optionalPath(Contexts.EXECUTOR_MEMORY_PROPERTY, ConfigValueType.STRING)
-                        .optionalPath(Contexts.BATCH_MILLISECONDS_PROPERTY, ConfigValueType.NUMBER)
-                        .optionalPath(EVENT_HANDLERS_CONFIG, ConfigValueType.LIST)
-                        .optionalPath(CONFIG_LOADER_PROPERTY, ConfigValueType.OBJECT)
-                        .optionalPath(PIPELINE_THREADS_PROPERTY, ConfigValueType.NUMBER)
-                        .optionalPath(Contexts.SPARK_SESSION_ENABLE_HIVE_SUPPORT, ConfigValueType.BOOLEAN)
-                        .handlesOwnValidationPath(Contexts.SPARK_CONF_PROPERTY_PREFIX)
-                        .handlesOwnValidationPath(CONFIG_LOADER_PROPERTY)
-                        .build();
-            }
-        }, ConfigUtils.getApplicationConfig(config));
+        List<ValidationResult> applicationResults = Validator.validate(() -> Validations.builder()
+                .optionalPath(Contexts.APPLICATION_NAME_PROPERTY, ConfigValueType.STRING)
+                .optionalPath(Contexts.NUM_EXECUTORS_PROPERTY, ConfigValueType.NUMBER)
+                .optionalPath(Contexts.NUM_EXECUTOR_CORES_PROPERTY, ConfigValueType.NUMBER)
+                .optionalPath(Contexts.EXECUTOR_MEMORY_PROPERTY, ConfigValueType.STRING)
+                .optionalPath(Contexts.BATCH_MILLISECONDS_PROPERTY, ConfigValueType.NUMBER)
+                .optionalPath(EVENT_HANDLERS_CONFIG, ConfigValueType.LIST)
+                .optionalPath(CONFIG_LOADER_PROPERTY, ConfigValueType.OBJECT)
+                .optionalPath(PIPELINE_THREADS_PROPERTY, ConfigValueType.NUMBER)
+                .optionalPath(Contexts.SPARK_SESSION_ENABLE_HIVE_SUPPORT, ConfigValueType.BOOLEAN)
+                .handlesOwnValidationPath(Contexts.SPARK_CONF_PROPERTY_PREFIX)
+                .handlesOwnValidationPath(CONFIG_LOADER_PROPERTY)
+                .build(), ConfigUtils.getApplicationConfig(config));
         ValidationUtils.prefixValidationResultMessages(applicationResults, "Application");
         results.addAll(applicationResults);
 
@@ -543,15 +538,10 @@ public class Runner {
 
         // Validate UDFs are provided as a list
         // TODO: inspect UDF objects to see if they are each valid
-        results.addAll(Validator.validate(new ProvidesValidations() {
-            @Override
-            public Validations getValidations() {
-                return Validations.builder()
-                        .optionalPath(UDFS_SECTION_CONFIG, ConfigValueType.LIST)
-                        .allowUnrecognizedPaths()
-                        .build();
-            }
-        }, config));
+        results.addAll(Validator.validate(() -> Validations.builder()
+                .optionalPath(UDFS_SECTION_CONFIG, ConfigValueType.LIST)
+                .allowUnrecognizedPaths()
+                .build(), config));
 
         ValidationUtils.logValidationResults(results);
 

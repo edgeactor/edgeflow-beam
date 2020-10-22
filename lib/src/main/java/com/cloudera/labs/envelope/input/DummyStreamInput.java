@@ -23,16 +23,22 @@ import com.typesafe.config.Config;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class FilesystemStreamInput implements StructuredStreamingInput,
+public class DummyStreamInput implements StructuredStreamingInput,
         ProvidesValidations, ProvidesAlias {
 
-    private static final String CSV_DATA = "/filesystem/streaming";
+    private static final String CSV_DATA = "file:///Codes/edgeflow-core/lib/src/test/resources/filesystem/streaming";
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Override
     public Dataset<Row> read() throws Exception {
 
-        String csvPath = getClass().getResource(CSV_DATA).getPath();
+//        String csvPath = getClass().getResource(CSV_DATA).getPath();
+        String csvPath = CSV_DATA;
+        log.info("CSV Path = " + csvPath);
+
         Contexts.getSparkSession().conf()
                 .set("spark.sql.streaming.checkpointLocation", "file:///tmp/checkpoints");
         // One,Two,Three,Four
@@ -53,7 +59,7 @@ public class FilesystemStreamInput implements StructuredStreamingInput,
 
     @Override
     public String getAlias() {
-        return "filesystem-stream";
+        return "dummy-stream";
     }
 
     @Override

@@ -15,7 +15,10 @@
 
 package com.cloudera.labs.envelope.input;
 
+import com.cloudera.labs.envelope.component.ComponentFactory;
 import com.cloudera.labs.envelope.run.Runner;
+import com.cloudera.labs.envelope.run.Step;
+import com.cloudera.labs.envelope.utils.StepUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import mockit.integration.junit4.JMockit;
@@ -24,17 +27,21 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.Set;
 
 @RunWith(JMockit.class)
-public class FilesystemStreamInputTest {
+public class DummyStreamInputTest {
 
     private static final String PIPELINE_CONF = "/structured-streaming.conf";
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Test
     public void testInput() throws Exception {
-        FilesystemStreamInput input = new FilesystemStreamInput();
+        DummyStreamInput input = new DummyStreamInput();
         Config config = ConfigFactory.empty();
         input.configure(config);
         Dataset<Row> df = input.read();
@@ -50,6 +57,25 @@ public class FilesystemStreamInputTest {
         String pipelinePath = getClass().getResource(PIPELINE_CONF).getPath();
         Runner runner = new Runner();
         Config config = ConfigFactory.parseFile(new File(pipelinePath));
-        runner.run(config);
+//        runner.run(config);
+        runner.validateConfigurations(config);
     }
+
+    @Test
+    public void testExtractPipelines() throws Exception {
+
+        String pipelinePath = getClass().getResource(PIPELINE_CONF).getPath();
+        Config config = ConfigFactory.parseFile(new File(pipelinePath));
+        Set<Step> steps = StepUtils.extractSteps(config, true, true);
+        log.info(steps.toString());
+    }
+
+    @Test
+    public void testComponent() {
+        String pipelinePath = getClass().getResource(PIPELINE_CONF).getPath();
+        Config config = ConfigFactory.parseFile(new File(pipelinePath));
+        Config inputConfig = config.getConfig("step1");
+//        ComponentFactory.create(DummyStreamInput.class, inputConfig)
+    }
+
 }
