@@ -197,8 +197,8 @@ public class Runner {
                         StepUtils.resetSteps(dependentSteps);
                     })
                     .outputMode(OutputMode.Append())
-                    .format("memory")
-                    .queryName(structuredStreamingStep.name)
+//                    .format("memory")
+//                    .queryName(structuredStreamingStep.name)
                     .start();
 
             streamingQueryList.add(streamingQuery);
