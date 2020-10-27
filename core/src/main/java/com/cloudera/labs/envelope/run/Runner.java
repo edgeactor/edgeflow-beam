@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -122,22 +122,20 @@ public class Runner {
 
         notifyPipelineStarted();
 
-    try {
-      if (mode == ExecutionMode.STREAMING) {
-        runStreaming(steps);
-      } else {
-        runBatch(steps);
-      }
-    }
-    catch (Exception e) {
-      notifyPipelineException(e);
-      throw e;
-    }
-    finally {
-      shutdownThreadPool();
-      shutdownSecurity();
-      Contexts.closeSparkSession();
-    }
+        try {
+            if (mode == ExecutionMode.STREAMING) {
+                runStreaming(steps);
+            } else {
+                runBatch(steps);
+            }
+        } catch (Exception e) {
+            notifyPipelineException(e);
+            throw e;
+        } finally {
+            shutdownThreadPool();
+            shutdownSecurity();
+            Contexts.closeSparkSession();
+        }
 
         notifyPipelineFinished();
     }
