@@ -122,19 +122,22 @@ public class Runner {
 
         notifyPipelineStarted();
 
-        try {
-            if (mode == ExecutionMode.STREAMING) {
-                runStreaming(steps);
-            } else {
-                runBatch(steps);
-            }
-        } catch (Exception e) {
-            notifyPipelineException(e);
-            throw e;
-        } finally {
-            shutdownThreadPool();
-            shutdownSecurity();
-        }
+    try {
+      if (mode == ExecutionMode.STREAMING) {
+        runStreaming(steps);
+      } else {
+        runBatch(steps);
+      }
+    }
+    catch (Exception e) {
+      notifyPipelineException(e);
+      throw e;
+    }
+    finally {
+      shutdownThreadPool();
+      shutdownSecurity();
+      Contexts.closeSparkSession();
+    }
 
         notifyPipelineFinished();
     }
