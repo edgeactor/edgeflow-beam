@@ -177,10 +177,15 @@ public class Runner {
 
                     Set<Step> batchSteps = StepUtils.mergeLoadedSteps(steps, streamingStep, baseConfig);
                     Set<Step> dependentSteps = StepUtils.getAllDependentSteps(streamingStep, batchSteps);
-                    batchSteps.add(streamingStep);
-                    batchSteps.addAll(streamingStep.loadNewBatchSteps());
-                    batchSteps.addAll(independentNonStreamingSteps);
-                    runBatch(batchSteps);
+//                    batchSteps.add(streamingStep);
+//                    batchSteps.addAll(streamingStep.loadNewBatchSteps());
+//                    batchSteps.addAll(independentNonStreamingSteps);
+//                    runBatch(batchSteps);
+
+                    dependentSteps.add(streamingStep);
+                    dependentSteps.addAll(streamingStep.loadNewBatchSteps());
+                    dependentSteps.addAll(independentNonStreamingSteps);
+                    runBatch(dependentSteps);
 
                     StepUtils.resetSteps(dependentSteps);
 
