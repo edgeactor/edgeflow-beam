@@ -166,30 +166,35 @@ public class Runner {
             stream.foreachRDD(new VoidFunction<JavaRDD<?>>() {
                 @Override
                 public void call(JavaRDD<?> raw) throws Exception {
-                    // Some independent steps might be repeating steps that have been flagged for reload
-                    StepUtils.resetRepeatingSteps(steps);
-                    // This will run any batch steps (and dependents) that are not submitted
-                    runBatch(independentNonStreamingSteps);
+                    try {
+                        // Some independent steps might be repeating steps that have been flagged for reload
+                        StepUtils.resetRepeatingSteps(steps);
+                        // This will run any batch steps (and dependents) that are not submitted
+                        runBatch(independentNonStreamingSteps);
 
-                    streamingStep.setData(streamingStep.translate(raw));
-                    streamingStep.writeData();
-                    streamingStep.setState(StepState.FINISHED);
+                        streamingStep.setData(streamingStep.translate(raw));
+                        streamingStep.writeData();
+                        streamingStep.setState(StepState.FINISHED);
 
-                    Set<Step> batchSteps = StepUtils.mergeLoadedSteps(steps, streamingStep, baseConfig);
-                    Set<Step> dependentSteps = StepUtils.getAllDependentSteps(streamingStep, batchSteps);
+                        Set<Step> batchSteps = StepUtils.mergeLoadedSteps(steps, streamingStep, baseConfig);
+                        Set<Step> dependentSteps = StepUtils.getAllDependentSteps(streamingStep, batchSteps);
 //                    batchSteps.add(streamingStep);
 //                    batchSteps.addAll(streamingStep.loadNewBatchSteps());
 //                    batchSteps.addAll(independentNonStreamingSteps);
 //                    runBatch(batchSteps);
 
-                    dependentSteps.add(streamingStep);
-                    dependentSteps.addAll(streamingStep.loadNewBatchSteps());
-                    dependentSteps.addAll(independentNonStreamingSteps);
-                    runBatch(dependentSteps);
+                        dependentSteps.add(streamingStep);
+                        dependentSteps.addAll(streamingStep.loadNewBatchSteps());
+                        dependentSteps.addAll(independentNonStreamingSteps);
+                        runBatch(dependentSteps);
 
-                    StepUtils.resetSteps(dependentSteps);
+                        StepUtils.resetSteps(dependentSteps);
 
-                    streamingStep.recordProgress(raw);
+                        streamingStep.recordProgress(raw);
+                    } catch (Exception ex) {
+                        LOG.error("Stream Step Error, " + ex.getMessage(), ex);
+                        throw ex;
+                    }
                 }
             });
 
