@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -46,82 +46,82 @@ import java.util.Set;
 /**
  * A translator implementation for binary Apache Avro generic record messages.
  */
-public class AvroTranslator implements Translator, ProvidesAlias, ProvidesValidations, 
-    InstantiatesComponents  {
+public class AvroTranslator implements Translator, ProvidesAlias, ProvidesValidations,
+        InstantiatesComponents {
 
-  private StructType schema;
-  private GenericDatumReader<GenericRecord> reader;
+    private StructType schema;
+    private GenericDatumReader<GenericRecord> reader;
 
-  public static final String SCHEMA_CONFIG = "schema";
+    public static final String SCHEMA_CONFIG = "schema";
 
-  @Override
-  public void configure(Config config) {
-    schema = ComponentFactory.create(Schema.class, config.getConfig(SCHEMA_CONFIG), true).getSchema();
-    reader = new GenericDatumReader<>(AvroUtils.schemaFor(schema));
-  }
-
-  @Override
-  public Iterable<Row> translate(Row message) throws Exception {
-    byte[] value = message.getAs(Translator.VALUE_FIELD_NAME);
-
-    Decoder decoder = DecoderFactory.get().binaryDecoder(value, null);
-    GenericRecord record = reader.read(null, decoder);
-    Row row = rowForRecord(record);
-
-    return Collections.singleton(row);
-  }
-
-  @Override
-  public StructType getExpectingSchema() {
-    return SchemaUtils.binaryValueSchema();
-  }
-
-  @Override
-  public StructType getProvidingSchema() {
-    return schema;
-  }
-
-  private Row rowForRecord(GenericRecord record) {
-    List<Object> values = Lists.newArrayList();
-
-    for (Field field : record.getSchema().getFields()) {
-      Object value = record.get(field.name());
-
-      Type fieldType = field.schema().getType();
-      if (fieldType.equals(Type.UNION)) {
-        fieldType = field.schema().getTypes().get(1).getType();
-      }
-      // Avro returns Utf8s for strings, which Spark SQL doesn't know how to use
-      if (fieldType.equals(Type.STRING) && value != null) {
-        value = value.toString();
-      }
-      // Avro returns binary as a ByteBuffer, but Spark SQL wants a byte[]
-      if (fieldType.equals(Type.BYTES) && value != null) {
-        value = ((ByteBuffer)value).array();
-      }
-
-      values.add(value);
+    @Override
+    public void configure(Config config) {
+        schema = ComponentFactory.create(Schema.class, config.getConfig(SCHEMA_CONFIG), true).getSchema();
+        reader = new GenericDatumReader<>(AvroUtils.schemaFor(schema));
     }
 
-    return new RowWithSchema(schema, values.toArray());
-  }
+    @Override
+    public Iterable<Row> translate(Row message) throws Exception {
+        byte[] value = (byte[]) message.getAs(Translator.VALUE_FIELD_NAME);
 
-  @Override
-  public String getAlias() {
-    return "avro";
-  }
+        Decoder decoder = DecoderFactory.get().binaryDecoder(value, null);
+        GenericRecord record = reader.read(null, decoder);
+        Row row = rowForRecord(record);
 
-  @Override
-  public Validations getValidations() {
-    return Validations.builder()
-        .mandatoryPath(SCHEMA_CONFIG, ConfigValueType.OBJECT)
-        .handlesOwnValidationPath(SCHEMA_CONFIG)
-        .build();
-  }
+        return Collections.singleton(row);
+    }
 
-  @Override
-  public Set<InstantiatedComponent> getComponents(Config config, boolean configure) {
-    return SchemaUtils.getSchemaComponents(config, configure, SCHEMA_CONFIG);
-  }
-  
+    @Override
+    public StructType getExpectingSchema() {
+        return SchemaUtils.binaryValueSchema();
+    }
+
+    @Override
+    public StructType getProvidingSchema() {
+        return schema;
+    }
+
+    private Row rowForRecord(GenericRecord record) {
+        List<Object> values = Lists.newArrayList();
+
+        for (Field field : record.getSchema().getFields()) {
+            Object value = record.get(field.name());
+
+            Type fieldType = field.schema().getType();
+            if (fieldType.equals(Type.UNION)) {
+                fieldType = field.schema().getTypes().get(1).getType();
+            }
+            // Avro returns Utf8s for strings, which Spark SQL doesn't know how to use
+            if (fieldType.equals(Type.STRING) && value != null) {
+                value = value.toString();
+            }
+            // Avro returns binary as a ByteBuffer, but Spark SQL wants a byte[]
+            if (fieldType.equals(Type.BYTES) && value != null) {
+                value = ((ByteBuffer) value).array();
+            }
+
+            values.add(value);
+        }
+
+        return new RowWithSchema(schema, values.toArray());
+    }
+
+    @Override
+    public String getAlias() {
+        return "avro";
+    }
+
+    @Override
+    public Validations getValidations() {
+        return Validations.builder()
+                .mandatoryPath(SCHEMA_CONFIG, ConfigValueType.OBJECT)
+                .handlesOwnValidationPath(SCHEMA_CONFIG)
+                .build();
+    }
+
+    @Override
+    public Set<InstantiatedComponent> getComponents(Config config, boolean configure) {
+        return SchemaUtils.getSchemaComponents(config, configure, SCHEMA_CONFIG);
+    }
+
 }

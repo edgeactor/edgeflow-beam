@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Cloudera, Inc. All Rights Reserved.
+ * Copyright (c) 2015-2020, Cloudera, Inc. All Rights Reserved.
  *
  * Cloudera, Inc. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"). You may not use this file except in
@@ -76,7 +76,7 @@ public class KVPTranslator implements Translator, ProvidesAlias, ProvidesValidat
 
   @Override
   public Iterable<Row> translate(Row message) {
-    String value = message.getAs(Translator.VALUE_FIELD_NAME);
+    String value = (String) message.getAs(Translator.VALUE_FIELD_NAME);
 
     kvpMap.clear();
     values.clear();

@@ -25,12 +25,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Objects;
 
 public class JsonSerializer implements Serializer<Row> {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static final String JSON_SCHEMA_CONFIG = "json.schema";
-    private StructType schema = null;
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Override
@@ -64,7 +63,7 @@ public class JsonSerializer implements Serializer<Row> {
         }
         log.debug("message = " + message);
 
-        return message.getBytes();
+        return Objects.requireNonNull(message).getBytes();
     }
 
     @Override

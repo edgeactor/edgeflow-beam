@@ -15,16 +15,14 @@
 
 package com.cloudera.labs.envelope.kafka;
 
-import com.cloudera.labs.envelope.component.ComponentFactory;
+import com.cloudera.labs.envelope.component.ProvidesAlias;
 import com.cloudera.labs.envelope.kafka.serde.AvroSerializer;
 import com.cloudera.labs.envelope.kafka.serde.DelimitedSerializer;
-import com.cloudera.labs.envelope.component.ProvidesAlias;
 import com.cloudera.labs.envelope.kafka.serde.JsonSerializer;
+import com.cloudera.labs.envelope.kafka.serde.RawSerializer;
 import com.cloudera.labs.envelope.output.BulkOutput;
 import com.cloudera.labs.envelope.plan.MutationType;
-import com.cloudera.labs.envelope.schema.Schema;
 import com.cloudera.labs.envelope.validate.ProvidesValidations;
-import com.cloudera.labs.envelope.validate.SupportedFieldTypesValidation;
 import com.cloudera.labs.envelope.validate.Validations;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -37,17 +35,14 @@ import org.apache.kafka.common.serialization.Serializer;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.DecimalType;
-import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
-import java.util.*;
-
-import static com.cloudera.labs.envelope.kafka.serde.JsonSerializer.JSON_SCHEMA_CONFIG;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class KafkaOutput implements BulkOutput, ProvidesAlias, ProvidesValidations {
 
@@ -57,12 +52,16 @@ public class KafkaOutput implements BulkOutput, ProvidesAlias, ProvidesValidatio
     public static final String SERIALIZER_TYPE_CONFIG_NAME = SERIALIZER_CONFIG_PREFIX + "type";
     public static final String DELIMITED_SERIALIZER = "delimited";
     public static final String AVRO_SERIALIZER = "avro";
+    public static final String RAW_SERIALIZER = "raw";
+    public static final String RAW_FIELD = "raw.field";
     public static final String JSON_SERIALIZER = "json";
     public static final String TIMESTAMP_FORMAT_CONFIG_NAME = "timestamp.formats";
 
     private static Logger LOG = LoggerFactory.getLogger(KafkaOutput.class);
 
     private Config config;
+
+    private String rawField = "raw";
 
     @Override
     public void configure(Config config) {
@@ -97,7 +96,7 @@ public class KafkaOutput implements BulkOutput, ProvidesAlias, ProvidesValidatio
                 .mandatoryPath(BROKERS_CONFIG_NAME, ConfigValueType.STRING)
                 .mandatoryPath(TOPIC_CONFIG_NAME, ConfigValueType.STRING)
                 .mandatoryPath(SERIALIZER_TYPE_CONFIG_NAME, ConfigValueType.STRING)
-                .allowedValues(SERIALIZER_TYPE_CONFIG_NAME, DELIMITED_SERIALIZER, AVRO_SERIALIZER, JSON_SERIALIZER)
+                .allowedValues(SERIALIZER_TYPE_CONFIG_NAME, DELIMITED_SERIALIZER, AVRO_SERIALIZER, JSON_SERIALIZER, RAW_SERIALIZER)
                 .handlesOwnValidationPath(SERIALIZER_CONFIG_PREFIX)
                 .handlesOwnValidationPath(KafkaCommon.PARAMETER_CONFIG_PREFIX)
                 .optionalPath(TIMESTAMP_FORMAT_CONFIG_NAME, ConfigValueType.LIST)
@@ -133,6 +132,10 @@ public class KafkaOutput implements BulkOutput, ProvidesAlias, ProvidesValidatio
                 case JSON_SERIALIZER:
                     keySerializer = new JsonSerializer();
                     valueSerializer = new JsonSerializer();
+                    break;
+                case RAW_SERIALIZER:
+                    keySerializer = new RawSerializer();
+                    valueSerializer = new RawSerializer();
                     break;
                 default:
                     throw new RuntimeException("Kafka output does not support serializer type: " + serializerType);
